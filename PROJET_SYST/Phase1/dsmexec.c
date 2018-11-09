@@ -95,7 +95,8 @@ int main(int argc, char *argv[])
     int num_procs=0;
     int port_num=0;
     int fd=0;
-
+     int** pipes_stderr;
+     int** pipes_stdout;
     /* Creation du tableau d'arguments pour le ssh */
     char exec_path[1024];
 
@@ -126,16 +127,23 @@ int main(int argc, char *argv[])
     /* + ecoute effective */
     fd = creer_socket(SOCK_STREAM,&port_num);
 
-
+        /* Allocation de la mémoire au tube une fois que le nombre de tubes est connus */
+    pipes_stderr=malloc(sizeof(int)*num_procs);
+    pipes_stdout=malloc(sizeof(int)*num_procs);
+    for(i = 0; i < num_procs ; i++) {
+      pipes_stderr[i]=malloc(2*sizeof(int));      
+      pipes_stdout[i]=malloc(2*sizeof(int));
+    }
     /* creation des fils */
     for(i = 0; i < num_procs ; i++) {
 
-      /* creation du tube pour rediriger stdout */
-      //int pipefd_stdout[2];
-      //pipe(pipefd_stdout);
-      /* creation du tube pour rediriger stderr */
-      //int pipefd_stderr[2];
-      //pipe(pipefd_stderr);
+ /* redirection stdout */
+        dup2(pipes_stdout[i],STDOUT_FILENO);
+	   /* redirection stderr */
+        dup2(pipes_stderr[i],STDERR_FILENO);
+	   /* Creation du tableau d'arguments pour le ssh */
+        char *newargv[]={nom_procs[0], argv[2]};
+	   /* jump to new prog : */
 
       pid = fork();
 
