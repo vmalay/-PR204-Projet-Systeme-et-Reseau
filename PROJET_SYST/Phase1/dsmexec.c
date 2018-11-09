@@ -41,15 +41,15 @@ int get_number_lign(char *txt) {
 
 
   while (1){
+
     n=read(fd,&c, 1);
-    printf("n=%d\n",n);
-
-    if (n ==0)
+    if (n==0)
       break;
-
     if (c =='\n')
-      i++;
+    i++;
+
   }
+
   close(fd);
 
   return i;
@@ -57,20 +57,20 @@ int get_number_lign(char *txt) {
 }
 
 int get_words_lign(char *txt, int number_lign, char msg[][NAME_MAX]){
-  int j=0,k=0;
+  int j=0,k=0,n;
   char c;
 
-  int fd,n;
+  int fd;
   fd = open(txt ,O_RDONLY);
 
   while (1){
 
-    n = read(fd,&c, 1);
+    n=read(fd,&c, 1);
     msg[j][k]=c;
 
     k++;
 
-    if (n == 0)
+    if (n==0)
       break;
 
     if (c=='\n'){
@@ -96,6 +96,13 @@ int main(int argc, char *argv[])
     int port_num=0;
     int fd=0;
 
+    /* Creation du tableau d'arguments pour le ssh */
+    char exec_path[1024];
+
+    getcwd(exec_path,1024);
+    strcat(exec_path,"/");
+    strcat(exec_path,argv[2]);
+
     /* Mise en place d'un traitant pour recuperer les fils zombies*/
 
     struct sigaction action;
@@ -108,7 +115,7 @@ int main(int argc, char *argv[])
 
     /* 1- on recupere le nombre de processus a lancer */
     num_procs=get_number_lign(argv[1]);
-    printf("num :%d", num_procs);
+
     /* 2- on recupere les noms des machines : le nom de */
     char nom_procs[num_procs][128];
     get_words_lign(argv[1], num_procs, nom_procs);
@@ -119,15 +126,16 @@ int main(int argc, char *argv[])
     /* + ecoute effective */
     fd = creer_socket(SOCK_STREAM,&port_num);
 
+
     /* creation des fils */
     for(i = 0; i < num_procs ; i++) {
 
       /* creation du tube pour rediriger stdout */
-      int pipefd_stdout[2];
-      pipe(pipefd_stdout);
+      //int pipefd_stdout[2];
+      //pipe(pipefd_stdout);
       /* creation du tube pour rediriger stderr */
-      int pipefd_stderr[2];
-      pipe(pipefd_stderr);
+      //int pipefd_stderr[2];
+      //pipe(pipefd_stderr);
 
       pid = fork();
 
@@ -136,33 +144,18 @@ int main(int argc, char *argv[])
       if (pid == 0) { /* fils */
 
         /* redirection stdout */
-        close(STDOUT_FILENO);
-        close(pipefd_stdout[0]);
-        dup(pipefd_stdout[1]);
-
-
-        /* redirection stderr */
-        close(STDERR_FILENO);
-        close(pipefd_stderr[0]);
-        dup(pipefd_stderr[1]);
-
-
-        /* Creation du tableau d'arguments pour le ssh */
-        char str[1024];
-        char exec_path[1024];
-        getcwd(str,1024);
-        sprintf(exec_path,"%s/%s",str,argv[1]);
 
         char *newargv[]={"ssh", nom_procs[i], exec_path, "no", "ui", "ok"};
 
+        printf("exec_path: %s\n",exec_path);
         /* jump to new prog : */
         execvp("ssh",newargv);
 
 
       } else  if(pid > 0) { /* pere */
         /* fermeture des extremites des tubes non utiles */
-        close(pipefd_stdout[1]);
-        close(pipefd_stderr[1]);
+        //close(pipefd_stdout[1]);
+        //close(pipefd_stderr[1]);
         num_procs_creat++;
       }
     }
