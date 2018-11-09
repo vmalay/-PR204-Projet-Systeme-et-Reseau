@@ -7,7 +7,8 @@
 #include <fcntl.h>
 #include <string.h>
 
-#define NAME_MAX 128
+#define MSG_SIZE 1024
+
 // dsmwrap devra etre connu de tous. On code en dur l'endroit ou il est.
 
 /* variables globales */
@@ -32,74 +33,23 @@ void sigchld_handler(int sig)
   /* pour eviter les zombies */
 }
 
-int get_number_lign(char *txt) {
-
-  int fd;
-  fd = open(txt ,O_RDONLY);
-  int i=0,n;
-  char c;
-
-
-  while (1){
-
-    n=read(fd,&c, 1);
-    if (n==0)
-      break;
-    if (c =='\n')
-    i++;
-
-  }
-
-  close(fd);
-
-  return i;
-
-}
-
-int get_words_lign(char *txt, int number_lign, char msg[][NAME_MAX]){
-  int j=0,k=0,n;
-  char c;
-
-  int fd;
-  fd = open(txt ,O_RDONLY);
-
-  while (1){
-
-    n=read(fd,&c, 1);
-    msg[j][k]=c;
-
-    k++;
-
-    if (n==0)
-      break;
-
-    if (c=='\n'){
-      msg[j][k-1]='\0';
-      j++;
-      k=0;
-    }
-  }
-
-  close(fd);
-
-  return 0;
-}
-
 int main(int argc, char *argv[])
 {
   if (argc < 3){
     usage();
   } else {
+
     pid_t pid;
-    int i;
+    int i,j,k,ret;
     int num_procs=0;
     int port_num=0;
     int fd=0;
-     int** pipes_stderr;
-     int** pipes_stdout;
-    /* Creation du tableau d'arguments pour le ssh */
     char exec_path[1024];
+    char buffer[MSG_SIZE];
+    int** pipefd_stderr;
+    int** pipefd_stdout;
 
+    /* Recuperation du chemin absolue du fichier à exécuter */
     getcwd(exec_path,1024);
     strcat(exec_path,"/");
     strcat(exec_path,argv[2]);
@@ -117,8 +67,8 @@ int main(int argc, char *argv[])
     /* 1- on recupere le nombre de processus a lancer */
     num_procs=get_number_lign(argv[1]);
 
-    /* 2- on recupere les noms des machines : le nom de */
-    char nom_procs[num_procs][128];
+    /* 2- on recupere les noms des machines :  */
+    char nom_procs[num_procs][NAME_MAX];
     get_words_lign(argv[1], num_procs, nom_procs);
 
     /* la machine est un des elements d'identification */
@@ -127,23 +77,16 @@ int main(int argc, char *argv[])
     /* + ecoute effective */
     fd = creer_socket(SOCK_STREAM,&port_num);
 
-        /* Allocation de la mémoire au tube une fois que le nombre de tubes est connus */
-    pipes_stderr=malloc(sizeof(int)*num_procs);
-    pipes_stdout=malloc(sizeof(int)*num_procs);
-    for(i = 0; i < num_procs ; i++) {
-      pipes_stderr[i]=malloc(2*sizeof(int));      
-      pipes_stdout[i]=malloc(2*sizeof(int));
+    /* Initialisation de stderr et stdout */
+    pipefd_stderr=malloc(sizeof(int)*num_procs);
+    pipefd_stdout=malloc(sizeof(int)*num_procs);
+    for(k = 0; k < num_procs ; k++) {
+      pipefd_stderr[i]=malloc(2*sizeof(int));
+      pipefd_stdout[i]=malloc(2*sizeof(int));
     }
+    
     /* creation des fils */
     for(i = 0; i < num_procs ; i++) {
-
- /* redirection stdout */
-        dup2(pipes_stdout[i],STDOUT_FILENO);
-	   /* redirection stderr */
-        dup2(pipes_stderr[i],STDERR_FILENO);
-	   /* Creation du tableau d'arguments pour le ssh */
-        char *newargv[]={nom_procs[0], argv[2]};
-	   /* jump to new prog : */
 
       pid = fork();
 
@@ -152,18 +95,28 @@ int main(int argc, char *argv[])
       if (pid == 0) { /* fils */
 
         /* redirection stdout */
+        ret=dup2(pipefd_stdout[i][1],STDOUT_FILENO);
+        printf("ret=%d\n",ret);
 
+        /* redirection stderr */
+        dup2(pipefd_stderr[i][1],STDERR_FILENO);
+        printf("ret=%d\n",ret);
+
+        /* Creation du tableau d'arguments pour le ssh */
         char *newargv[]={"ssh", nom_procs[i], exec_path, "no", "ui", "ok"};
 
-        printf("exec_path: %s\n",exec_path);
         /* jump to new prog : */
         execvp("ssh",newargv);
 
 
+
+
       } else  if(pid > 0) { /* pere */
         /* fermeture des extremites des tubes non utiles */
-        //close(pipefd_stdout[1]);
-        //close(pipefd_stderr[1]);
+        for(j = 0; j < num_procs ; j++){
+          //close(pipefd_stdout[i][0]);
+          //close(pipefd_stderr[i][0]);
+        }
         num_procs_creat++;
       }
     }
@@ -172,12 +125,15 @@ int main(int argc, char *argv[])
     for(i = 0; i < num_procs ; i++){
 
       /* on accepte les connexions des processus dsm */
-      //struct sockaddr_in *client_addr = malloc(10*sizeof(client_addr));
-      //new_sockfd = do_accept(sockfd, client_addr); //accept connection from client
+      struct sockaddr_in *client_addr = malloc(10*sizeof(client_addr));
+      int new_sockfd = do_accept(fd, client_addr); //accept connection from client
 
       /*  On recupere le nom de la machine distante */
       /* 1- d'abord la taille de la chaine */
       /* 2- puis la chaine elle-meme */
+      char hostname[256];
+      int test = gethostname(hostname,256);
+      printf("test: %d",test);
 
       /* On recupere le pid du processus distant  */
 

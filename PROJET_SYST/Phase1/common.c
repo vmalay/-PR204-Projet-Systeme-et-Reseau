@@ -152,6 +152,44 @@ ssize_t read_line(int fd, char * buf, size_t len){
     char ss[10*MSG_SIZE];
     ret = read(fd, ss, 10*MSG_SIZE);
   }
-
   return i;
+}
+
+int get_number_lign(char *txt) {
+
+  int fd;
+  fd = open(txt ,O_RDONLY);
+  int i=0,n;
+  char c;
+
+  while (1){
+    n=read(fd,&c, 1);
+    if (n==0)
+      break;
+    if (c =='\n')
+    i++;
+  }
+  close(fd);
+  return i;
+}
+
+int get_words_lign(char *txt, int number_lign, char msg[][NAME_MAX]){
+  int j=0,k=0,n,fd;
+  char c;
+  fd = open(txt ,O_RDONLY);
+
+  while (1){
+    n=read(fd,&c, 1);
+    msg[j][k]=c;
+    k++;
+    if (n==0)
+      break;
+    if (c=='\n'){
+      msg[j][k-1]='\0';
+      j++;
+      k=0;
+    }
+  }
+  close(fd);
+  return 0;
 }

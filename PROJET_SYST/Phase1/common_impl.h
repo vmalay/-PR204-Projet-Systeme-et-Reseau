@@ -14,6 +14,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #define MSG_SIZE 1024
+#define NAME_MAX 128
 
 
 #define ERROR_EXIT(str) {perror(str);exit(EXIT_FAILURE);}
@@ -51,3 +52,7 @@ ssize_t send_line(int fd, void *buf, size_t len);
 ssize_t display_line(char * buf, int len);
 
 ssize_t read_line(int fd, char * buf, size_t len);
+
+int get_words_lign(char *txt, int number_lign, char msg[][NAME_MAX]);
+
+int get_number_lign(char *txt);
