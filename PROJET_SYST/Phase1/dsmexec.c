@@ -1,4 +1,5 @@
 #include "common_impl.h"
+
 #include <stdio.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -27,28 +28,28 @@ void usage(void)
 
 void sigchld_handler(int sig)
 {
-   /* on traite les fils qui se terminent */
-   /* pour eviter les zombies */
+  /* on traite les fils qui se terminent */
+  /* pour eviter les zombies */
 }
 
 int get_number_lign(char *txt) {
 
-	int fd;
-	fd = open(txt ,O_RDONLY);
-	int i=0;
+  int fd;
+  fd = open(txt ,O_RDONLY);
+  int i=0,n;
   char c;
 
 
-	while (1){
-		read(fd,&c, 1);
+  while (1){
+    n=read(fd,&c, 1);
+    printf("n=%d\n",n);
 
-		if (c =='\n')
-			i++;
-		if (c =='0'){
-			break;
-    }
-	}
+    if (n ==0)
+      break;
 
+    if (c =='\n')
+      i++;
+  }
   close(fd);
 
   return i;
@@ -59,30 +60,29 @@ int get_words_lign(char *txt, int number_lign, char msg[][NAME_MAX]){
   int j=0,k=0;
   char c;
 
-  int fd;
-	fd = open(txt ,O_RDONLY);
+  int fd,n;
+  fd = open(txt ,O_RDONLY);
 
-	while (1){
+  while (1){
 
-		read(fd,&c, 1);
+    n = read(fd,&c, 1);
     msg[j][k]=c;
 
     k++;
 
-    if (c =='0')
-			break;
+    if (n == 0)
+      break;
 
-		if (c=='\n'){
+    if (c=='\n'){
       msg[j][k-1]='\0';
-			j++;
+      j++;
       k=0;
-		}
-	}
+    }
+  }
 
-	close(fd);
-	printf("1er: %s \n2em: %s \n3em: %s\n", msg[0], msg[1], msg[2]);
+  close(fd);
 
-	return 0;
+  return 0;
 }
 
 int main(int argc, char *argv[])
@@ -90,97 +90,122 @@ int main(int argc, char *argv[])
   if (argc < 3){
     usage();
   } else {
-     pid_t pid;
-     int i;
-     int num_procs=0;
+    pid_t pid;
+    int i;
+    int num_procs=0;
+    int port_num=0;
+    int fd=0;
 
-     /* Mise en place d'un traitant pour recuperer les fils zombies*/
+    /* Mise en place d'un traitant pour recuperer les fils zombies*/
 
-     struct sigaction action;
-     memset(&action, 0, sizeof(action));
-     action.sa_handler = &sigchld_handler;
-     action.sa_flags = 0;
-     sigaction(SIGALRM, &action, NULL);
+    struct sigaction action;
+    memset(&action, 0, sizeof(action));
+    action.sa_handler = &sigchld_handler;
+    action.sa_flags = 0;
+    sigaction(SIGALRM, &action, NULL);
 
-     /* lecture du fichier de machines */
-     /* 1- on recupere le nombre de processus a lancer */
-     /* 2- on recupere les noms des machines : le nom de */
-     num_procs=get_number_lign(argv[1]);
-     char nom_procs[num_procs][128];
-     get_words_lign(argv[1], num_procs, nom_procs);
+    /* lecture du fichier de machines */
 
-     /* la machine est un des elements d'identification */
+    /* 1- on recupere le nombre de processus a lancer */
+    num_procs=get_number_lign(argv[1]);
+    printf("num :%d", num_procs);
+    /* 2- on recupere les noms des machines : le nom de */
+    char nom_procs[num_procs][128];
+    get_words_lign(argv[1], num_procs, nom_procs);
 
-     /* creation de la socket d'ecoute */
-     /* + ecoute effective */
+    /* la machine est un des elements d'identification */
 
-     /* creation des fils */
-     for(i = 0; i < num_procs ; i++) {
+    /* creation de la socket d'ecoute */
+    /* + ecoute effective */
+    fd = creer_socket(SOCK_STREAM,&port_num);
 
-  	/* creation du tube pour rediriger stdout */
-    //int pipefd;
-    //pipe(pipefd);
-  	/* creation du tube pour rediriger stderr */
-    //int pipefd;
-    //pipe(pipefd);
+    /* creation des fils */
+    for(i = 0; i < num_procs ; i++) {
 
-  	pid = fork();
-  	if(pid == -1) ERROR_EXIT("fork");
+      /* creation du tube pour rediriger stdout */
+      int pipefd_stdout[2];
+      pipe(pipefd_stdout);
+      /* creation du tube pour rediriger stderr */
+      int pipefd_stderr[2];
+      pipe(pipefd_stderr);
 
-  	if (pid == 0) { /* fils */
+      pid = fork();
 
-	   /* redirection stdout */
+      if(pid == -1) ERROR_EXIT("fork");
 
-	   /* redirection stderr */
+      if (pid == 0) { /* fils */
 
-	   /* Creation du tableau d'arguments pour le ssh */
-     char *newargv[]={nom_procs[0], argv[2]};
-	   /* jump to new prog : */
-	   execvp("ssh",newargv);
-
-	} else  if(pid > 0) { /* pere */
-	   /* fermeture des extremites des tubes non utiles */
-	   num_procs_creat++;
-	}
-     }
+        /* redirection stdout */
+        close(STDOUT_FILENO);
+        close(pipefd_stdout[0]);
+        dup(pipefd_stdout[1]);
 
 
-     for(i = 0; i < num_procs ; i++){
+        /* redirection stderr */
+        close(STDERR_FILENO);
+        close(pipefd_stderr[0]);
+        dup(pipefd_stderr[1]);
 
-	/* on accepte les connexions des processus dsm */
 
-	/*  On recupere le nom de la machine distante */
-	/* 1- d'abord la taille de la chaine */
-	/* 2- puis la chaine elle-meme */
+        /* Creation du tableau d'arguments pour le ssh */
+        char str[1024];
+        char exec_path[1024];
+        getcwd(str,1024);
+        sprintf(exec_path,"%s/%s",str,argv[1]);
 
-	/* On recupere le pid du processus distant  */
+        char *newargv[]={"ssh", nom_procs[i], exec_path, "no", "ui", "ok"};
 
-	/* On recupere le numero de port de la socket */
-	/* d'ecoute des processus distants */
-     }
+        /* jump to new prog : */
+        execvp("ssh",newargv);
 
-     /* envoi du nombre de processus aux processus dsm*/
 
-     /* envoi des rangs aux processus dsm */
+      } else  if(pid > 0) { /* pere */
+        /* fermeture des extremites des tubes non utiles */
+        close(pipefd_stdout[1]);
+        close(pipefd_stderr[1]);
+        num_procs_creat++;
+      }
+    }
 
-     /* envoi des infos de connexion aux processus */
 
-     /* gestion des E/S : on recupere les caracteres */
-     /* sur les tubes de redirection de stdout/stderr */
-     /* while(1)
-         {
-            je recupere les infos sur les tubes de redirection
-            jusqu'à ce qu'ils soient inactifs (ie fermes par les
-            processus dsm ecrivains de l'autre cote ...)
+    for(i = 0; i < num_procs ; i++){
 
-         };
-      */
+      /* on accepte les connexions des processus dsm */
+      //struct sockaddr_in *client_addr = malloc(10*sizeof(client_addr));
+      //new_sockfd = do_accept(sockfd, client_addr); //accept connection from client
 
-     /* on attend les processus fils */
+      /*  On recupere le nom de la machine distante */
+      /* 1- d'abord la taille de la chaine */
+      /* 2- puis la chaine elle-meme */
 
-     /* on ferme les descripteurs proprement */
+      /* On recupere le pid du processus distant  */
 
-     /* on ferme la socket d'ecoute */
-  }
-   exit(EXIT_SUCCESS);
+      /* On recupere le numero de port de la socket */
+      /* d'ecoute des processus distants */
+    }
+
+    /* envoi du nombre de processus aux processus dsm*/
+
+    /* envoi des rangs aux processus dsm */
+
+    /* envoi des infos de connexion aux processus */
+
+    /* gestion des E/S : on recupere les caracteres */
+    /* sur les tubes de redirection de stdout/stderr */
+    /* while(1)
+    {
+    je recupere les infos sur les tubes de redirection
+    jusqu'à ce qu'ils soient inactifs (ie fermes par les
+    processus dsm ecrivains de l'autre cote ...)
+
+  };
+  */
+
+  /* on attend les processus fils */
+
+  /* on ferme les descripteurs proprement */
+
+  /* on ferme la socket d'ecoute */
+}
+exit(EXIT_SUCCESS);
 }

@@ -10,6 +10,11 @@
 #include <signal.h>
 
 /* autres includes (eventuellement) */
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#define MSG_SIZE 1024
+
 
 #define ERROR_EXIT(str) {perror(str);exit(EXIT_FAILURE);}
 
@@ -30,3 +35,19 @@ struct dsm_proc {
 typedef struct dsm_proc dsm_proc_t;
 
 int creer_socket(int type, int *port_num);
+
+int do_socket(int domain, int type, int protocol);
+
+struct sockaddr_in init_serv_addr(const char* port, struct sockaddr_in serv_addr);
+
+void do_bind(int sockfd, struct sockaddr_in serv_addr);
+
+void do_listen(int sockfd);
+
+int do_accept(int sockfd, struct sockaddr_in *client_addr);
+
+ssize_t send_line(int fd, void *buf, size_t len);
+
+ssize_t display_line(char * buf, int len);
+
+ssize_t read_line(int fd, char * buf, size_t len);
