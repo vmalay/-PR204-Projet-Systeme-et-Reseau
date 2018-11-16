@@ -40,9 +40,10 @@ int main(int argc, char *argv[])
   } else {
 
     pid_t pid;
-    int i,j,k,ret;
-    int num_procs=0;
     int port_num=0;
+    int i,j,k;
+    int num_procs=0;
+
     int fd=0;
     char exec_path[1024];
     char buffer[MSG_SIZE];
@@ -67,24 +68,24 @@ int main(int argc, char *argv[])
     /* 1- on recupere le nombre de processus a lancer */
     num_procs=get_number_lign(argv[1]);
 
+
     /* 2- on recupere les noms des machines :  */
     char nom_procs[num_procs][NAME_MAX];
     get_words_lign(argv[1], num_procs, nom_procs);
-
     /* la machine est un des elements d'identification */
 
     /* creation de la socket d'ecoute */
     /* + ecoute effective */
     fd = creer_socket(SOCK_STREAM,&port_num);
-
     /* Initialisation de stderr et stdout */
     pipefd_stderr=malloc(sizeof(int)*num_procs);
     pipefd_stdout=malloc(sizeof(int)*num_procs);
+
     for(k = 0; k < num_procs ; k++) {
-      pipefd_stderr[i]=malloc(2*sizeof(int));
-      pipefd_stdout[i]=malloc(2*sizeof(int));
+      pipefd_stderr[k]=malloc(2*sizeof(int));
+      pipefd_stdout[k]=malloc(2*sizeof(int));
     }
-    
+
     /* creation des fils */
     for(i = 0; i < num_procs ; i++) {
 
@@ -95,12 +96,12 @@ int main(int argc, char *argv[])
       if (pid == 0) { /* fils */
 
         /* redirection stdout */
-        ret=dup2(pipefd_stdout[i][1],STDOUT_FILENO);
-        printf("ret=%d\n",ret);
+        if (dup2(pipefd_stdout[i][1],STDOUT_FILENO) == -1)
+        perror("dup2 stdout");
 
         /* redirection stderr */
-        dup2(pipefd_stderr[i][1],STDERR_FILENO);
-        printf("ret=%d\n",ret);
+        if (dup2(pipefd_stderr[i][1],STDERR_FILENO) == -1)
+        perror("dup2 stderr");
 
         /* Creation du tableau d'arguments pour le ssh */
         char *newargv[]={"ssh", nom_procs[i], exec_path, "no", "ui", "ok"};
@@ -109,36 +110,50 @@ int main(int argc, char *argv[])
         execvp("ssh",newargv);
 
 
-
-
       } else  if(pid > 0) { /* pere */
         /* fermeture des extremites des tubes non utiles */
         for(j = 0; j < num_procs ; j++){
-          //close(pipefd_stdout[i][0]);
-          //close(pipefd_stderr[i][0]);
+          //close(pipefd_stdout[j][0]);
+          //close(pipefd_stderr[j][0]);
         }
         num_procs_creat++;
       }
     }
 
+    struct processus_info{
+      pid_t pid_distant;
+      int port_num_distant;
+      int new_sockfd;
+      int size_hostname;
+      char *hostname;
+    };
 
-    for(i = 0; i < num_procs ; i++){
+    struct processus_info proc[num_procs];
+
+    for(k = 0; k < num_procs ; k++){
 
       /* on accepte les connexions des processus dsm */
       struct sockaddr_in *client_addr = malloc(10*sizeof(client_addr));
-      int new_sockfd = do_accept(fd, client_addr); //accept connection from client
+      proc[k].new_sockfd = do_accept(fd, client_addr);
 
       /*  On recupere le nom de la machine distante */
+
       /* 1- d'abord la taille de la chaine */
+      read_line(proc[k].new_sockfd, buffer, MSG_SIZE);
+      proc[k].size_hostname = atoi(buffer);
+
       /* 2- puis la chaine elle-meme */
-      char hostname[256];
-      int test = gethostname(hostname,256);
-      printf("test: %d",test);
+      read_line(proc[k].new_sockfd, buffer, proc[k].size_hostname+1);
+      proc[k].hostname=(char*)malloc(proc[k].size_hostname*sizeof(char));
+      strcpy(proc[k].hostname,buffer);
 
       /* On recupere le pid du processus distant  */
+      read_line(proc[k].new_sockfd, buffer, MSG_SIZE);
+      proc[k].pid_distant = atoi(buffer);
 
-      /* On recupere le numero de port de la socket */
-      /* d'ecoute des processus distants */
+      /* On recupere le n°port de la sock ecoute des processus distants */
+      read_line(proc[k].new_sockfd, buffer, MSG_SIZE);
+      proc[k].port_num_distant = atoi(buffer);
     }
 
     /* envoi du nombre de processus aux processus dsm*/
@@ -154,15 +169,18 @@ int main(int argc, char *argv[])
     je recupere les infos sur les tubes de redirection
     jusqu'à ce qu'ils soient inactifs (ie fermes par les
     processus dsm ecrivains de l'autre cote ...)
-
   };
   */
 
   /* on attend les processus fils */
-
+  waitpid(-1,NULL, WNOHANG);
   /* on ferme les descripteurs proprement */
-
+  for(k = 0; j < num_procs ; j++){
+  close(pipefd_stdout[j][1]);
+  close(pipefd_stderr[j][1]);
+  }
   /* on ferme la socket d'ecoute */
+  close(fd);
 }
 exit(EXIT_SUCCESS);
 }

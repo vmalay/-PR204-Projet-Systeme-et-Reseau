@@ -7,7 +7,7 @@ int creer_socket(int prop, int *port_num)
 
   /* fonction de creation et d'attachement d'une nouvelle socket */
   sockfd = do_socket(AF_INET, prop, IPPROTO_TCP);  //Socket initialisation
-  serv_addr = init_serv_addr("0", serv_addr); //Initialisation of server information
+  serv_addr = init_serv_addr("8080", serv_addr); //Initialisation of server information
   do_bind(sockfd, serv_addr);  //We Bind on the port specified.
   do_listen(sockfd);  //Listen for most of at SOMAXCONN Clients.
 
@@ -34,13 +34,13 @@ int do_socket(int domain, int type, int protocol){
   perror("ERROR opening socket");
 
   //Reusing already in use adresses
-  if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1)
+  if (setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(int))==-1)
   perror("Error socket option");
 
   return sockfd;
 }
 
-struct sockaddr_in init_serv_addr(const char* port, struct sockaddr_in serv_addr){
+struct sockaddr_in init_serv_addr(const char* port,struct sockaddr_in serv_addr){
 
   memset(&serv_addr,0, sizeof(serv_addr));
   serv_addr.sin_family = AF_INET;
@@ -52,9 +52,8 @@ struct sockaddr_in init_serv_addr(const char* port, struct sockaddr_in serv_addr
 }
 
 void do_bind(int sockfd, struct sockaddr_in serv_addr){
-  if ( bind( sockfd,(struct sockaddr *) &serv_addr, sizeof(serv_addr)) ==  -1 ){
+  if ( bind( sockfd,(struct sockaddr*)&serv_addr,sizeof(serv_addr))==-1)
     perror ("bind");
-  }
 }
 
 void do_listen(int sockfd){
@@ -79,6 +78,11 @@ int do_accept(int sockfd, struct sockaddr_in *client_addr){
 
   return client_sock;
 
+}
+
+void do_connect(int sockfd, struct sockaddr_in sock_host, int size_host){
+	if (connect(sockfd, (struct sockaddr *) & sock_host, size_host) == -1)
+			perror("connect");
 }
 
 ssize_t send_line(int fd, void *buf, size_t len){
@@ -114,7 +118,9 @@ ssize_t display_line(char * buf, int len){
 
 }
 
-ssize_t read_line(int fd, char * buf, size_t len){
+ssize_t read_line(int fd, char* buf, size_t len){
+
+  memset(buf,'\0', MSG_SIZE);
 
   /* Variables */
   int i;
@@ -127,13 +133,13 @@ ssize_t read_line(int fd, char * buf, size_t len){
   /* Perform the read */
   for (i = 0 ; i < len; i++){
 
-    ret= read(fd, &c, 1);
+    ret = read(fd, &c, 1);
 
-    if( ret == 1 ){
+    if( ret == 1 && c != '\0'){
       ptr[cnt++] = c;
 
       if( c == '\n' && fd==STDIN_FILENO){
-        ptr[cnt-1] = '\0';
+        //ptr[cnt-1] = '\0';
         return i+1;
       }
       if( c == '\0'){
@@ -141,7 +147,7 @@ ssize_t read_line(int fd, char * buf, size_t len){
       }
     }
     else if( 0 == ret ) {
-      ptr[cnt] = '\0';
+      //ptr[cnt] = '\0';
       break;
     }
   }
