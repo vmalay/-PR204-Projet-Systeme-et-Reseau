@@ -7,14 +7,13 @@
 #include <fcntl.h>
 #include <string.h>
 
-#define MSG_SIZE 1024
 
 // dsmwrap devra etre connu de tous. On code en dur l'endroit ou il est.
+#define PATH_DSMWRAP "/net/t/vmalay/T2/PROJET_SYST/Phase1/bin/dsmwrap"
 
 /* variables globales */
-
-/* un tableau gerant les infos d'identification */
-/* des processus dsm */
+#define MSG_SIZE 1024
+/* un tableau gerant les infos d'identification des processus dsm */
 dsm_proc_t *proc_array = NULL;
 
 /* le nombre de processus effectivement crees */
@@ -29,8 +28,15 @@ void usage(void)
 
 void sigchld_handler(int sig)
 {
-  /* on traite les fils qui se terminent */
-  /* pour eviter les zombies */
+    pid_t pid;
+
+    while ((pid = waitpid(-1, NULL, WNOHANG)) != -1)
+    {
+      if (pid > 0)
+      {
+        num_procs_creat--;
+      }
+    }
 }
 
 int main(int argc, char *argv[])
@@ -45,18 +51,16 @@ int main(int argc, char *argv[])
     int num_procs=0;
 
     int fd=0;
-    char exec_path[1024];
     char buffer[MSG_SIZE];
     int** pipefd_stderr;
     int** pipefd_stdout;
 
     /* Recuperation du chemin absolue du fichier à exécuter */
-    getcwd(exec_path,1024);
-    strcat(exec_path,"/");
-    strcat(exec_path,argv[2]);
+    char exec_path[MSG_SIZE];
+    sprintf(exec_path,"/net/t/vmalay/T2/PROJET_SYST/Phase1/bin/%s",argv[2]);
+
 
     /* Mise en place d'un traitant pour recuperer les fils zombies*/
-
     struct sigaction action;
     memset(&action, 0, sizeof(action));
     action.sa_handler = &sigchld_handler;
@@ -72,11 +76,12 @@ int main(int argc, char *argv[])
     /* 2- on recupere les noms des machines :  */
     char nom_procs[num_procs][NAME_MAX];
     get_words_lign(argv[1], num_procs, nom_procs);
+
     /* la machine est un des elements d'identification */
 
-    /* creation de la socket d'ecoute */
-    /* + ecoute effective */
+    /* creation de la socket d'ecoute + ecoute effective */
     fd = creer_socket(SOCK_STREAM,&port_num);
+
     /* Initialisation de stderr et stdout */
     pipefd_stderr=malloc(sizeof(int)*num_procs);
     pipefd_stdout=malloc(sizeof(int)*num_procs);
@@ -104,7 +109,7 @@ int main(int argc, char *argv[])
         perror("dup2 stderr");
 
         /* Creation du tableau d'arguments pour le ssh */
-        char *newargv[]={"ssh", nom_procs[i], exec_path, "no", "ui", "ok"};
+        char *newargv[]={"ssh", nom_procs[i], PATH_DSMWRAP, exec_path, "no", "ui", "ok"};
 
         /* jump to new prog : */
         execvp("ssh",newargv);
@@ -122,7 +127,7 @@ int main(int argc, char *argv[])
 
     struct processus_info{
       pid_t pid_distant;
-      int port_num_distant;
+      int port_distant;
       int new_sockfd;
       int size_hostname;
       char *hostname;
@@ -153,14 +158,26 @@ int main(int argc, char *argv[])
 
       /* On recupere le n°port de la sock ecoute des processus distants */
       read_line(proc[k].new_sockfd, buffer, MSG_SIZE);
-      proc[k].port_num_distant = atoi(buffer);
+      proc[k].port_distant = atoi(buffer);
     }
 
-    /* envoi du nombre de processus aux processus dsm*/
+    for(k = 0; k < num_procs ; k++){
 
-    /* envoi des rangs aux processus dsm */
+      /* envoi du nombre de processus aux processus dsm*/
+      memset(buffer, '\0', MSG_SIZE);
+      sprintf(buffer, "%d", num_procs);
+      send_line(proc[k].new_sockfd, buffer, strlen(buffer)+1);
+      /* envoi des rangs aux processus dsm */
+      memset(buffer, '\0', MSG_SIZE);
+      sprintf(buffer, "%d", k);
+      send_line(proc[k].new_sockfd, buffer, strlen(buffer)+1);
 
-    /* envoi des infos de connexion aux processus */
+      /* envoi des infos de connexion aux processus */
+      memset(buffer, '\0', MSG_SIZE);
+      sprintf(buffer, "%d %s", proc[k].port_distant, proc[k].hostname);
+      send_line(proc[k].new_sockfd, buffer, strlen(buffer)+1);
+
+    }
 
     /* gestion des E/S : on recupere les caracteres */
     /* sur les tubes de redirection de stdout/stderr */
@@ -173,12 +190,11 @@ int main(int argc, char *argv[])
   */
 
   /* on attend les processus fils */
-  waitpid(-1,NULL, WNOHANG);
+    for (k = 0; k < num_procs; k++)
+      wait(NULL);   
+
   /* on ferme les descripteurs proprement */
-  for(k = 0; j < num_procs ; j++){
-  close(pipefd_stdout[j][1]);
-  close(pipefd_stderr[j][1]);
-  }
+
   /* on ferme la socket d'ecoute */
   close(fd);
 }
