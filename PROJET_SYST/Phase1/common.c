@@ -7,7 +7,7 @@ int creer_socket(int prop, int *port_num)
 
   /* fonction de creation et d'attachement d'une nouvelle socket */
   sockfd = do_socket(AF_INET, prop, IPPROTO_TCP);  //Socket initialisation
-  serv_addr = init_serv_addr("8080", serv_addr); //Initialisation of server information
+  serv_addr = init_serv_addr("0", serv_addr); //Initialisation of server information
   do_bind(sockfd, serv_addr);  //We Bind on the port specified.
   do_listen(sockfd);  //Listen for most of at SOMAXCONN Clients.
 
@@ -82,7 +82,7 @@ int do_accept(int sockfd, struct sockaddr_in *client_addr){
 
 void do_connect(int sockfd, struct sockaddr_in sock_host, int size_host){
 	if (connect(sockfd, (struct sockaddr *) & sock_host, size_host) == -1)
-			perror("connect");
+			perror("connect ici");
 }
 
 ssize_t send_line(int fd, void *buf, size_t len){

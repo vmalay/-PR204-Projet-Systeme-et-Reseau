@@ -52,6 +52,7 @@ int main(int argc, char *argv[])
 
     int fd=0;
     char buffer[MSG_SIZE];
+    char port[10];
     int** pipefd_stderr;
     int** pipefd_stdout;
 
@@ -100,6 +101,7 @@ int main(int argc, char *argv[])
 
       if (pid == 0) { /* fils */
 
+
         /* redirection stdout */
         if (dup2(pipefd_stdout[i][1],STDOUT_FILENO) == -1)
         perror("dup2 stdout");
@@ -109,7 +111,16 @@ int main(int argc, char *argv[])
         perror("dup2 stderr");
 
         /* Creation du tableau d'arguments pour le ssh */
-        char *newargv[]={"ssh", nom_procs[i], PATH_DSMWRAP, exec_path, "no", "ui", "ok"};
+        char ** newargv = malloc((argc+4)*sizeof(char *));
+        newargv[0]="ssh";
+        newargv[1]=nom_procs[i];
+        newargv[2]=PATH_DSMWRAP;
+        sprintf(port,"%d",ntohs(port_num));
+        newargv[3]=port;
+        newargv[4]=exec_path;
+        for (k = 5; k < argc + 3; k++)
+        	newargv[k]=argv[k-3];
+        newargv[argc+3] = NULL;
 
         /* jump to new prog : */
         execvp("ssh",newargv);
@@ -138,8 +149,9 @@ int main(int argc, char *argv[])
     for(k = 0; k < num_procs ; k++){
 
       /* on accepte les connexions des processus dsm */
-      struct sockaddr_in *client_addr = malloc(10*sizeof(client_addr));
-      proc[k].new_sockfd = do_accept(fd, client_addr);
+      struct sockaddr_in client_addr;
+      socklen_t len = sizeof(client_addr);
+      proc[k].new_sockfd = accept(fd,(struct sockaddr*) &client_addr, &len ); 
 
       /*  On recupere le nom de la machine distante */
 
@@ -161,22 +173,23 @@ int main(int argc, char *argv[])
       proc[k].port_distant = atoi(buffer);
     }
 
-    for(k = 0; k < num_procs ; k++){
-
       /* envoi du nombre de processus aux processus dsm*/
+    for(k = 0; k < num_procs ; k++){
       memset(buffer, '\0', MSG_SIZE);
       sprintf(buffer, "%d", num_procs);
       send_line(proc[k].new_sockfd, buffer, strlen(buffer)+1);
+    }
       /* envoi des rangs aux processus dsm */
+    for(k = 0; k < num_procs ; k++){    
       memset(buffer, '\0', MSG_SIZE);
       sprintf(buffer, "%d", k);
       send_line(proc[k].new_sockfd, buffer, strlen(buffer)+1);
-
+	}
       /* envoi des infos de connexion aux processus */
+    for(k = 0; k < num_procs ; k++){
       memset(buffer, '\0', MSG_SIZE);
       sprintf(buffer, "%d %s", proc[k].port_distant, proc[k].hostname);
       send_line(proc[k].new_sockfd, buffer, strlen(buffer)+1);
-
     }
 
     /* gestion des E/S : on recupere les caracteres */
