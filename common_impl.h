@@ -39,6 +39,8 @@ typedef struct dsm_proc dsm_proc_t;
 
 int creer_socket(int type, int *port_num);
 
+int creer_socket_connect(char* addr, char* port);
+
 int do_socket(int domain, int type, int protocol);
 
 struct sockaddr_in init_serv_addr(const char* port, struct sockaddr_in serv_addr);
@@ -60,3 +62,5 @@ ssize_t read_line(int fd, char * buf, size_t len);
 int get_words_lign(char *txt, int number_lign, char msg[][NAME_MAX]);
 
 int get_number_lign(char *txt);
+
+char* get_argument(char source[MSG_SIZE], int no_arg);

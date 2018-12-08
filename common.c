@@ -3,34 +3,50 @@
 int creer_socket(int prop, int *port_num)
 {
   int sockfd = 0;
-  int ret=0;
   struct sockaddr_in serv_addr;
 
   /* fonction de creation et d'attachement d'une nouvelle socket */
-  sockfd = do_socket(AF_INET, prop, 0);  //Socket initialisation
+  sockfd = do_socket(AF_INET, prop, IPPROTO_TCP);  //Socket initialisation
+  serv_addr = init_serv_addr("0", serv_addr); //Initialisation of server information
+  do_bind(sockfd, serv_addr);  //We Bind on the port specified.
 
-  //serv_addr = init_serv_addr("0", serv_addr); //Initialisation of server information
-  //do_bind(sockfd, serv_addr);  //We Bind on the port specified.
   /* renvoie le numero de descripteur et modifie le parametre port_num */
-  //*port_num = serv_addr.sin_port;
-  struct sockaddr_in infos;
-  int size_infos = sizeof(struct sockaddr_in);
-  memset(&infos,0,sizeof(infos));
-  infos.sin_addr.s_addr = INADDR_ANY;
-  infos.sin_family = AF_INET;
-  infos.sin_port = htons(0);
-  ret = bind(sockfd,(struct sockaddr*) &infos,sizeof(infos));
-  printf("creer_socket bind ret = %d\n",ret);
-  getsockname(sockfd, (struct sockaddr *)&infos, (socklen_t *)&size_infos);
-  *port_num = ntohs(infos.sin_port);
-  printf("**********%d\n",*port_num);
+  socklen_t len = sizeof(serv_addr);
+  getsockname(sockfd,(struct sockaddr *)&serv_addr,&len);
+  *port_num = ntohs(serv_addr.sin_port);
+
   printf("Creer_socket: succes.\n");
-  do_listen(sockfd);  //Listen for most of at SOMAXCONN Clients.
 
   return sockfd;
 
 }
 
+int creer_socket_connect(char *addr,char *port){
+  struct addrinfo hints,*res,*p;
+  int status,sock;
+
+  memset(&hints, 0, sizeof hints);
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_flags = AI_PASSIVE;     // fill in my IP for me
+
+  if ((status = getaddrinfo(addr, port, &hints, &res)) != 0)
+    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+
+  for(p = res; p != NULL; p = p->ai_next) {
+
+    //get the socket
+    sock = do_socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+
+    //connect to remote socket
+    if (connect(sock, p->ai_addr, p->ai_addrlen)!=0)
+      perror("connect dsmwrap");
+
+    }
+
+  freeaddrinfo(res);
+  return sock;
+}
 
 int do_socket(int domain, int type, int protocol){
 
@@ -93,7 +109,7 @@ int do_accept(int sockfd, struct sockaddr_in *client_addr){
 
 void do_connect(int sockfd, struct sockaddr_in sock_host, int size_host){
 	if (connect(sockfd, (struct sockaddr *) & sock_host, size_host) == -1)
-			perror("connect ici");
+			perror("error connect dmsexec");
 }
 
 ssize_t send_line(int fd, void *buf, size_t len){
@@ -143,7 +159,7 @@ ssize_t read_line(int fd, char* buf, size_t len){
 
   /* Perform the read */
   for (i = 0 ; i < len; i++){
-
+    fprintf(stderr,",,,,,,,,%d\n",len);
     ret = read(fd, &c, 1);
 
     if( ret == 1 && c != '\0'){
@@ -151,6 +167,7 @@ ssize_t read_line(int fd, char* buf, size_t len){
 
       if( c == '\n' && fd==STDIN_FILENO){
         //ptr[cnt-1] = '\0';
+        printf("%d\n",i);
         return i+1;
       }
       if( c == '\0'){
@@ -161,13 +178,16 @@ ssize_t read_line(int fd, char* buf, size_t len){
       //ptr[cnt] = '\0';
       break;
     }
+    fprintf(stderr,"**/**/*%d\n",i);
   }
-  ptr[len] = '\0';
+
+  ptr[i+1] = '\0';
 
   /* Empty stdin buffer in the case of too large user_input */
   if( fd == STDIN_FILENO && i == len ){
     char ss[10*MSG_SIZE];
     ret = read(fd, ss, 10*MSG_SIZE);
+    fprintf(stderr,"******%d\n",ret);
   }
   return i;
 }
@@ -209,4 +229,31 @@ int get_words_lign(char *txt, int number_lign, char msg[][NAME_MAX]){
   }
   close(fd);
   return 0;
+}
+
+//Structure : /<somthg> arg1 arg2 ...| get the argn with th no_arg put at n
+char* get_argument(char source[MSG_SIZE], int no_arg){
+  char* buffer = malloc(sizeof(char)*MSG_SIZE);
+  memset(buffer,'\0', MSG_SIZE);
+  int check=0,compt, m=0;
+
+  for (compt = 0; compt < (strlen(source))*sizeof(char); compt++) {
+
+    if (source[compt] == ' ' && check != no_arg)
+      check++;
+
+    if (source[compt] == ' ' && check == no_arg){
+      buffer[m]='\0';
+      break;
+    }
+
+    if (source[compt] != ' ' && check == no_arg-1){
+      buffer[m] = source[compt];
+      m++;
+    }
+
+
+  }
+
+  return buffer;
 }
