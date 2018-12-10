@@ -30,12 +30,13 @@ int main(int argc, char **argv)
     newarg[i]=argv[i+3];
   }
   newarg[argc-3]=NULL;
-
   /* creation d'une socket pour se connecter au */
   /* au lanceur et envoyer/recevoir les infos */
   /* necessaires pour la phase dsm_init */
-
+  fprintf(stderr,"The hostname is %s\n",hostname);
+  fprintf(stderr,"The port is %s\n",port);
   sockfd = creer_socket_connect(hostname, port);
+  fprintf(stderr,"Connected to the socket\n");
 
   /* Envoi de la taille et du nom de machine au lanceur */
   /* Envoi du pid au lanceur */
@@ -60,7 +61,11 @@ int main(int argc, char **argv)
   /* on execute la bonne commande */
 
   fprintf(stderr,"*** ___FIN_DSMWRAP___ ***\n\n");
-  execvp(newarg[0],newarg);
+  fprintf(stderr,"hello %s\n",newarg[1]);
+  //for(i=0;i<argc-3;i++){
+  //  fprintf(stderr,"~~~~~~~~%s\n",newarg[i]);
+  //}
+  execvp(newarg[1],newarg);
 
   return 0;
 }

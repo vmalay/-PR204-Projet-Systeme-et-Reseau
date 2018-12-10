@@ -41,7 +41,9 @@ int creer_socket_connect(char *addr,char *port){
     //connect to remote socket
     if (connect(sock, p->ai_addr, p->ai_addrlen)!=0)
       perror("connect dsmwrap");
-
+    else{
+      fprintf(stderr, "Le connect marche \n");
+    }
     }
 
   freeaddrinfo(res);

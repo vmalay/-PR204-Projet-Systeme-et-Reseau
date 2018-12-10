@@ -10,7 +10,7 @@
 // dsmwrap devra etre connu de tous. On code en dur l'endroit ou il est.
 #define PATH_DSMWRAP "/net/t/akejji/phase2/Phase2/bin/dsmwrap"
 #define PATH_TRUC "/net/t/akejji/phase2/Phase2/bin/truc"
-
+#define PATH_EXEMPLE "/net/t/akejji/phase2/Phase2/bin/exemple"
 /* variables globales */
 #define MSG_SIZE 1024
 /* un tableau gerant les infos d'identification des processus dsm */
@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
         newargv[3]=hostname;
         newargv[4]=port;
         newargv[5]=rang;
-        newargv[6]=PATH_TRUC;
+        newargv[6]=PATH_EXEMPLE;
         for (k = 7; k < argc + 3; k++)
         	newargv[k]=argv[k-3];
         newargv[argc+3] = NULL;
@@ -189,13 +189,14 @@ int main(int argc, char *argv[])
       sprintf(buffer,"%d %d",num_procs,proc[k].rang);
       send_line(proc[k].new_sockfd, buffer, strlen(buffer)+1);
     }
+
     for(j=0;j<num_procs;j++){
       for(k=0;k<num_procs;k++){
         memset(buffer, '\0', MSG_SIZE);
         sprintf(buffer,"%d %d %s", proc[k].rang, proc[k].port_distant, proc[k].hostname);
         send_line(proc[j].new_sockfd, buffer, strlen(buffer)+1);
       }
-      
+
     }
     printf("SORTIE BOUCLE2\n");
 

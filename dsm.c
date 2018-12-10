@@ -34,7 +34,7 @@ Differentes fonctions:
 #include "dsm.h"
 #include "common_impl.h"
 #include <fcntl.h>
-#include <sys/types.h> 
+#include <sys/types.h>
 #include <sys/socket.h>
 int DSM_NODE_NUM; /* nombre de processus dsm */
 int DSM_NODE_ID;  /* rang (= numero) du processus */
@@ -108,7 +108,7 @@ int creer_socket_connect(char *addr,char *port){
   int status,sock;
 
   memset(&hints, 0, sizeof hints);
-  hints.ai_family = AF_INET; 
+  hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags = AI_PASSIVE;     // fill in my IP for me
 
@@ -263,7 +263,7 @@ static void *dsm_comm_daemon( void *arg)
 static int dsm_send(int dest,void *buf,size_t size)
 {
    /* a completer */
-   
+
 }
 
 /* on recoit la page */
@@ -325,6 +325,7 @@ static void segv_handler(int sig, siginfo_t *info, void *context)
 /* dans les programmes utilisateurs de la DSM                       */
 char *dsm_init(int argc, char **argv)
 {
+  printf("wakwaaaaak\n");
    struct sigaction act;
    int index;
    char buffer[MSG_SIZE];
@@ -345,9 +346,12 @@ char *dsm_init(int argc, char **argv)
    /* reception de mon numero de processus dsm envoye */
    /* par le lanceur de programmes (DSM_NODE_ID)*/
    rank=atoi(get_argument(buffer,2));
+   printf("numprocs**%d rank**%d\n",numprocs,rank);
    memset(buffer, '\0', MSG_SIZE);
    infos_procs *infos=NULL;
    infos=malloc(numprocs*sizeof(infos_procs));
+
+
    /* reception des informations de connexion des autres */
    /* processus envoyees par le lanceur : */
    /* nom de machine, numero de port, etc. */
@@ -355,12 +359,12 @@ char *dsm_init(int argc, char **argv)
    int j;
    for(j=0;j<=numprocs;j++){
       memset(buffer, '\0', MSG_SIZE);
-      read_line(socket_dsm, buffer, MSG_SIZE);
+      read(socket_dsm, buffer, MSG_SIZE);
       infos[j].rang=atoi(get_argument(buffer,1));
       infos[j].port=atoi(get_argument(buffer,2));
       infos[j].hostname = get_argument(buffer,3);
    }
-   
+
    /* initialisation des connexions */
    /* avec les autres processus : connect/accept */
    /* Allocation des pages en tourniquet */
@@ -374,7 +378,7 @@ char *dsm_init(int argc, char **argv)
      }
      dsm_change_info( index, WRITE, index % DSM_NODE_NUM);
    }
-   
+
 
 
    /* mise en place du traitant de SIGSEGV */
