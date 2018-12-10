@@ -8,8 +8,8 @@
 #include <poll.h>
 
 // dsmwrap devra etre connu de tous. On code en dur l'endroit ou il est.
-#define PATH_DSMWRAP "~/Documents/PROJET_SYSTEM/PR204_MOI/Phase2/bin/dsmwrap"
-#define PATH_TRUC "~/Documents/PROJET_SYSTEM/PR204_MOI/Phase2/bin/truc"
+#define PATH_DSMWRAP "~/T2/PROJET_SYSTEM/PR204_MOI/Phase2/bin/dsmwrap"
+#define PATH_TRUC "~/T2/PROJET_SYSTEM/PR204_MOI/Phase2/bin/truc"
 
 /* variables globales */
 #define MSG_SIZE 1024
@@ -56,14 +56,14 @@ int main(int argc, char *argv[])
     int sockfd=0;
     char port[10];
     char hostname[258];
-    char rang[10];
+    char rank[10];
 
     // PIPE redirrection Variables
     int** pipefd_stderr;
     int** pipefd_stdout;
 
     //Poll Structure Variables
-    int nfds, timeout=-1;
+    int timeout=-1;
     struct pollfd fds_stdout[200];
     struct pollfd fds_stderr[200];
     memset(fds_stdout, 0, sizeof(fds_stdout)*num_procs_creat);
@@ -121,13 +121,13 @@ int main(int argc, char *argv[])
       char ** newargv = malloc((argc+4)*sizeof(char *));
       gethostname(hostname,258);
       sprintf(port,"%i",port_num);
-      sprintf(rang,"%d", i);
+      sprintf(rank,"%d", i);
       newargv[0]="ssh";
       newargv[1]=nom_procs[i];
       newargv[2]=PATH_DSMWRAP;
       newargv[3]=hostname;
       newargv[4]=port;
-      newargv[5]=rang;
+      newargv[5]=rank;
       newargv[6]=PATH_TRUC;
       for (k = 7; k < argc + 3; k++)
         newargv[k]=argv[k-3];
@@ -154,7 +154,6 @@ int main(int argc, char *argv[])
 
 
   for(k = 0; k < num_procs ; k++){
-
     /* on accepte les connexions des processus dsm */
     struct sockaddr_in client_addr;
     socklen_t len = sizeof(client_addr);
@@ -179,13 +178,13 @@ int main(int argc, char *argv[])
     read(proc_array[k].connect_info.new_sockfd, buffer, MSG_SIZE);
     proc_array[k].connect_info.port_distant = atoi(buffer);
 
-    /* On recupere le rang des processus distant */
+    /* On recupere le rank des processus distant */
     read(proc_array[k].connect_info.new_sockfd, buffer, MSG_SIZE);
-    proc_array[k].connect_info.rang= atoi(buffer);
+    proc_array[k].connect_info.rank= atoi(buffer);
 
     printf("proc_array[%d] a reçu: %d, %s, %d, %d, %d\n",k,proc_array[k].connect_info.size_hostname,
       proc_array[k].connect_info.hostname, proc_array[k].pid, proc_array[k].connect_info.port_distant,
-      proc_array[k].connect_info.rang);
+      proc_array[k].connect_info.rank);
   } // end of FOR
 
   printf("~~~~~~~~~~~~SORTIE BOUCLE1~~~~~~~~~~~~\n");
@@ -193,12 +192,12 @@ int main(int argc, char *argv[])
  fflush(stderr);
   for(k = 0; k < num_procs ; k++){
     /* envoi du nombre de processus aux processus dsm*/
-    /* envoi des rangs aux processus dsm */
+    send_line(proc_array[k].connect_info.new_sockfd, &num_procs_creat, sizeof(int));
+
+    /* envoi des ranks aux processus dsm */
+    send_line(proc_array[k].connect_info.new_sockfd, &proc_array.connect_info.rank,sizeof(int)*num_procs_creat);
     /* envoi des infos de connexion aux processus */
-    memset(buffer, '\0', MSG_SIZE);
-    sprintf(buffer,"%d %d %d %s", num_procs, proc_array[k].connect_info.rang,
-     proc_array[k].connect_info.port_distant, proc_array[k].connect_info.hostname);
-    send_line(proc_array[k].connect_info.new_sockfd, buffer, strlen(buffer)+1);
+    send_line(proc_array[k].connect_info.new_sockfd, &proc_array.connect_info,sizeof(proc_array.connect_info)*num_procs_creat);
   }
   printf("~~~~~~~~~~~~SORTIE BOUCLE2~~~~~~~~~~~~ \n");
   fflush(stdout);
@@ -225,6 +224,7 @@ int main(int argc, char *argv[])
       break;
 
   }; // end of WHILE
+
   printf("~~~~~~~~~~~~SORTIE BOUCLE3~~~~~~~~~~~~\n");
 
   /* on attend les processus fils */

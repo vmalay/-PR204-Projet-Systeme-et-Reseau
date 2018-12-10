@@ -29,7 +29,6 @@ struct dsm_proc_conn  {
    int port_distant;
    int new_sockfd;
    int size_hostname;
-   int rang;
    char *hostname;
 };
 typedef struct dsm_proc_conn dsm_proc_conn_t;
@@ -73,5 +72,3 @@ char* get_argument(char source[MSG_SIZE], int no_arg);
 struct processus_info;
 
 int create_poll(struct pollfd *fds, int num_procs_create, int nfds, int timeout, dsm_proc_t *proc_array, char* std_mode);
-
-

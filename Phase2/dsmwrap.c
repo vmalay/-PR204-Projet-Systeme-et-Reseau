@@ -8,8 +8,10 @@ int main(int argc, char **argv)
   char buffer[MSG_SIZE];
   char* hostname = argv[1];
   char* port = argv[2];
-  char* rang = argv[3];
+  char* rank = argv[3];
   char proc_name[258];
+  struct sockaddr_in client_addr;
+  socklen_t len = sizeof(client_addr);
   gethostname(proc_name,258);
 
   fprintf(stderr,"\n*** ___EXECUTION_DMSWRAP___ ***\n");
@@ -22,11 +24,12 @@ int main(int argc, char **argv)
   /* processus inter pour "nettoyer" liste arguments qu'on va passer */
   /* a la commande a executer vraiment */
 
-  char **newarg=malloc((argc-3)*sizeof(char*));
-  for (i=0;i<argc-3;i++){
-    newarg[i]=argv[i+3];
+  char **newarg=malloc((argc-4)*sizeof(char*));
+  for (i=0;i<argc-4;i++){
+    newarg[i]=argv[i+4];
+    fprintf(stderr,"newarg i: %s\n", newarg[i]);
   }
-  newarg[argc-3]=NULL;
+  newarg[argc-4]=NULL;
 
 
   /* creation d'une socket pour se connecter au */
@@ -47,8 +50,9 @@ int main(int argc, char **argv)
 
   /* Creation de la socket d'ecoute pour les */
   /* connexions avec les autres processus dsm */
-
-  creer_socket(SOCK_STREAM,&port_num);
+  int sock = creer_socket(SOCK_STREAM,&port_num);
+  do_listen(sock);
+  int sockdsm = accept(sock,(struct sockaddr*) &client_addr, &len );
 
   /* Envoi du numero de port au lanceur pour qu'il  */
   /* le propage à tous les autres processus dsm */
@@ -56,9 +60,9 @@ int main(int argc, char **argv)
   sprintf(buffer,"%d",port_num);
   send_line(sockfd,buffer,strlen(buffer)+1);
 
-  /* Envoi du rang */
+  /* Envoi du rank */
   memset(buffer,'\0', MSG_SIZE);
-  sprintf(buffer,"%s",rang);
+  sprintf(buffer,"%s",rank);
   send_line(sockfd,buffer,strlen(buffer)+1);
 
 
