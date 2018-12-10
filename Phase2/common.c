@@ -26,7 +26,7 @@ int creer_socket_connect(char *addr,char *port){
   int status,sock;
 
   memset(&hints, 0, sizeof hints);
-  hints.ai_family = AF_INET; 
+  hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags = AI_PASSIVE;     // fill in my IP for me
 
@@ -259,15 +259,16 @@ struct processus_info{
   int port_distant;
   int new_sockfd;
   int size_hostname;
-  int rang;
+  int rank;
   char *hostname;
 };
 
 int create_poll(struct pollfd *fds, int num_procs_create, int nfds,
- int timeout, dsm_proc_t *proc_array, char* std_mode){
+ int timeout, dsm_proc_t *proc_array, int** pipefd_std, char* std_mode){
 
-  int rang=0,i,k,j;
-  char* hostname;
+  int rank=0,i,k,j;
+  char hostname[MSG_SIZE];
+  memset(hostname, '\0', MSG_SIZE);
   char buffer[MSG_SIZE];
   int value = poll(fds, num_procs_create,timeout);
 
@@ -281,11 +282,12 @@ int create_poll(struct pollfd *fds, int num_procs_create, int nfds,
         // It's a new connection.
       for (k=0; k<num_procs_create; k++){
 
-        if (fds[i].fd == proc_array[k].connect_info.new_sockfd) {
+        if ( fds[i].fd == pipefd_std[k][0] ) {
+
           strcpy(proc_array[k].connect_info.hostname,hostname);
-          rang = proc_array[k].connect_info.rang;
-          memset(buffer,'\0', MSG_SIZE); 
-          int n = read_line(fds[i].fd, buffer, MSG_SIZE);
+          rank = proc_array[k].connect_info.rank;
+          memset(buffer,'\0', MSG_SIZE);
+          int n = read(fds[i].fd, buffer, MSG_SIZE);
 
           if (n < 0){
             perror("ERROR reading from socket");
@@ -293,20 +295,28 @@ int create_poll(struct pollfd *fds, int num_procs_create, int nfds,
           }
 
           //Inactif >> QUIT.
-          if (n==0){ 
-            close(fds[i].fd); 
+          if (n==0){
+            close(fds[i].fd);
             for (j=i;j<nfds;j++)
               fds[j].fd=fds[j+1].fd;
             fds[nfds].fd = -1;
             nfds--;
             break;
           }
+          
+          fflush(stdout);
+          fflush(stderr);
 
-          if (strcmp(std_mode,"stdout")==0){          
-            fprintf(stdout,"[Proc %i : %s : stdout] : %s", rang,hostname,buffer);
+          if (strcmp(std_mode,"stdout")==0){
+            fprintf(stdout,"[Proc %i : %s : stdout] : %s", rank,hostname,buffer);
+            fflush(stdout);
+            fflush(stderr);
           }
-          if (strcmp(std_mode,"stderr")==0){         
-            fprintf(stdout,"[Proc %i : %s : stderr] : %s", rang,hostname,buffer);
+
+          if (strcmp(std_mode,"stderr")==0){
+            fprintf(stdout,"[Proc %i : %s : stderr] : %s", rank,hostname,buffer);
+            fflush(stdout);
+            fflush(stderr);
           }
 
         } // end of IF newsockfd

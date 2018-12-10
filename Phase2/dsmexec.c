@@ -7,6 +7,15 @@
 #include <string.h>
 #include <poll.h>
 
+// envoie de la page (numero de page ou page en entier)
+
+// erreur de segmentation, protect sur la page ou changer ?
+
+// envoyer un tableau d'entier
+
+// accept et connect
+
+
 // dsmwrap devra etre connu de tous. On code en dur l'endroit ou il est.
 #define PATH_DSMWRAP "~/T2/PROJET_SYSTEM/PR204_MOI/Phase2/bin/dsmwrap"
 #define PATH_TRUC "~/T2/PROJET_SYSTEM/PR204_MOI/Phase2/bin/truc"
@@ -140,8 +149,8 @@ int main(int argc, char *argv[])
       } else  if(pid > 0) { /* pere */
         /* fermeture des extremites des tubes non utiles */
       for(j = 0; j < num_procs ; j++){
-          //close(pipefd_stdout[j][1]);
-          //close(pipefd_stderr[j][1]);
+          close(pipefd_stdout[j][1]);
+          close(pipefd_stderr[j][1]);
       }
       num_procs_creat++;
     }
@@ -154,6 +163,8 @@ int main(int argc, char *argv[])
 
 
   for(k = 0; k < num_procs ; k++){
+
+    int pid,rank,size_hostname,port_distant;
     /* on accepte les connexions des processus dsm */
     struct sockaddr_in client_addr;
     socklen_t len = sizeof(client_addr);
@@ -162,27 +173,27 @@ int main(int argc, char *argv[])
     /*  On recupere le nom de la machine distante */
 
     /* 1- d'abord la taille de la chaine */
-    read(proc_array[k].connect_info.new_sockfd, buffer, MSG_SIZE);
-    proc_array[k].connect_info.size_hostname = atoi(buffer);
+    read(proc_array[k].connect_info.new_sockfd,&size_hostname,sizeof(int));
 
     /* 2- puis la chaine elle-meme */
-    read(proc_array[k].connect_info.new_sockfd, buffer, proc_array[k].connect_info.size_hostname+1);
-    proc_array[k].connect_info.hostname=(char*)malloc(proc_array[k].connect_info.size_hostname*sizeof(char));
+    memset(buffer, '\0', MSG_SIZE);
+    read(proc_array[k].connect_info.new_sockfd, buffer, size_hostname+1);
+    proc_array[k].connect_info.hostname=(char*)malloc(size_hostname*sizeof(char));
     strcpy(proc_array[k].connect_info.hostname,buffer);
 
     /* On recupere le pid du processus distant  */
-    read(proc_array[k].connect_info.new_sockfd, buffer, MSG_SIZE);
-    proc_array[k].pid = atoi(buffer);
+    read(proc_array[k].connect_info.new_sockfd, &pid, sizeof(int));
+    proc_array[k].pid = pid;
 
     /* On recupere le n°port de la sock ecoute des processus distants */
-    read(proc_array[k].connect_info.new_sockfd, buffer, MSG_SIZE);
-    proc_array[k].connect_info.port_distant = atoi(buffer);
+    read(proc_array[k].connect_info.new_sockfd, &port_distant, sizeof(int));
+    proc_array[k].connect_info.port_distant = port_distant;
 
     /* On recupere le rank des processus distant */
-    read(proc_array[k].connect_info.new_sockfd, buffer, MSG_SIZE);
-    proc_array[k].connect_info.rank= atoi(buffer);
+    read(proc_array[k].connect_info.new_sockfd, &rank, sizeof(int));
+    proc_array[k].connect_info.rank= rank;
 
-    printf("proc_array[%d] a reçu: %d, %s, %d, %d, %d\n",k,proc_array[k].connect_info.size_hostname,
+    printf("proc_array[%d] a reçu: %d, %s, %d, %d, %d\n",k,size_hostname,
       proc_array[k].connect_info.hostname, proc_array[k].pid, proc_array[k].connect_info.port_distant,
       proc_array[k].connect_info.rank);
   } // end of FOR
@@ -192,12 +203,11 @@ int main(int argc, char *argv[])
  fflush(stderr);
   for(k = 0; k < num_procs ; k++){
     /* envoi du nombre de processus aux processus dsm*/
-    send_line(proc_array[k].connect_info.new_sockfd, &num_procs_creat, sizeof(int));
-
+    //send_line(proc_array[k].connect_info.new_sockfd, &num_procs_creat, sizeof(int));
     /* envoi des ranks aux processus dsm */
-    send_line(proc_array[k].connect_info.new_sockfd, &proc_array.connect_info.rank,sizeof(int)*num_procs_creat);
+    //send_line(proc_array[k].connect_info.new_sockfd, &proc_array.connect_info.rank,sizeof(int)*num_procs_creat);
     /* envoi des infos de connexion aux processus */
-    send_line(proc_array[k].connect_info.new_sockfd, &proc_array.connect_info,sizeof(proc_array.connect_info)*num_procs_creat);
+    //send_line(proc_array[k].connect_info.new_sockfd, &proc_array.connect_info,sizeof(proc_array.connect_info)*num_procs_creat);
   }
   printf("~~~~~~~~~~~~SORTIE BOUCLE2~~~~~~~~~~~~ \n");
   fflush(stdout);
@@ -217,9 +227,8 @@ int main(int argc, char *argv[])
       /*je recupere les infos sur les tubes de redirection
       jusqu'à ce qu'ils soient inactifs (ie fermes par les
       processus dsm ecrivains de l'autre cote ...) */
-    int nfds_stdout = create_poll(fds_stdout,num_procs_creat,num_procs_creat,timeout,proc_array,"stdout");
-    int nfds_stderr = create_poll(fds_stderr,num_procs_creat,num_procs_creat,timeout,proc_array,"stderr");
-
+    int nfds_stdout = create_poll(fds_stdout,num_procs_creat,num_procs_creat,timeout,proc_array,pipefd_stdout,"stdout");
+    int nfds_stderr = create_poll(fds_stderr,num_procs_creat,num_procs_creat,timeout,proc_array,pipefd_stderr,"stderr");
     if (nfds_stdout == 0 && nfds_stderr ==0)
       break;
 

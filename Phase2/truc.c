@@ -10,7 +10,8 @@ int main(int argc, char *argv[])
    int i;
    char str[1024];
    char exec_path[1024];
-   for (i=0;i<30;i++){
+
+   sleep(4);
 
    getcwd(str,1024);
    fprintf(stdout,"Working dir is %s\n",str);
@@ -27,7 +28,7 @@ int main(int argc, char *argv[])
    fflush(stdout);
    fflush(stderr);
 
-   sleep(2);
-}
+
+
    return 0;
 }

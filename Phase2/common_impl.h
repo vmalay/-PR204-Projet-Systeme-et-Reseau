@@ -71,4 +71,4 @@ char* get_argument(char source[MSG_SIZE], int no_arg);
 
 struct processus_info;
 
-int create_poll(struct pollfd *fds, int num_procs_create, int nfds, int timeout, dsm_proc_t *proc_array, char* std_mode);
+int create_poll(struct pollfd *fds, int num_procs_create, int nfds, int timeout, dsm_proc_t *proc_array,int** pipefd_std, char* std_mode);
